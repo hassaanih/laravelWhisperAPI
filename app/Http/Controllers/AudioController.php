@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AudioDetails;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class AudioController extends Controller
 {
@@ -35,15 +39,33 @@ class AudioController extends Controller
      */
     public function store(Request $request)
     {
-        if ($request->hasFile('audio_file')) {
-            $file = $request->file('audio_file');
-            $filename = $file->getClientOriginalName();
-            $path = $file->storeAs('public/audio', $filename);
-
-            // Optionally, you can save the file path or perform additional actions
-            $response['path'] = $path;
-            return response()->json($response, Response::HTTP_OK);
+        try{
+            if ($request->hasFile('audio_file')) {
+                $file = $request->file('audio_file');
+                $filename = $file->getClientOriginalName();
+                // $path = $file->storeAs('public/audio', $filename);
+                $path = Storage::disk('public')->put('audio', $file);
+    
+                $audioPath = new AudioDetails();
+                $audioPath->audio_file_path = $path;
+                $audioPath->audio_client_path = env('STORAGE_URL').$path;
+                $audioPath->save();
+    
+                $response['path'] =  $audioPath->audio_client_path;
+    
+    
+                return response()->json($response, Response::HTTP_OK);
+            }
+            $response['message'] = ['file not found'];
+            return response()->json($response, Response::HTTP_BAD_REQUEST);
+        }catch(Throwable $e){
+            Log::error($e->getMessage());
+            $response['general'] = $e->getMessage();
+            return response()->json($response, Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+        
+
+         
     }
 
     /**
